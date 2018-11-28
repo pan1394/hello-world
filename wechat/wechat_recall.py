@@ -15,15 +15,15 @@ robot_enabled = False
 def my_reply(fromMsg, toUser):
     robotReply = get_response(fromMsg)
     itchat.send(msg=robotReply, toUserName=toUser)
+    print("机器人: {}".format(robotReply))
 
  
-def isSent2Me(toUserName):
+def is_sent_me(toUserName):
     friend = itchat.search_friends(userName=toUserName)
     if friend != None and friend.Uin == owner.Uin:
         return True
     return False
-
-
+  
 @itchat.msg_register([TEXT, PICTURE, FRIENDS, CARD, MAP, SHARING, RECORDING, ATTACHMENT, VIDEO],isFriendChat=True, isGroupChat=True, isMpChat=True)
 def handle_receive_msg(msg):
     global face_bug
@@ -92,7 +92,7 @@ def handle_receive_msg(msg):
     
     face_bug=msg_content
  
-    if( isSent2Me(toUserName) and robot_enabled):       #如果是发送给我的, 用机器人回复.
+    if( is_sent_me(toUserName) and robot_enabled and friend):       #如果是发送给我的, 用机器人回复.
         my_reply(msg_content, fromName)
 
     ##将信息存储在字典中，每一个msg_id对应一条信息
@@ -112,7 +112,7 @@ def handle_receive_msg(msg):
 def information(msg):
     #这里如果这里的msg['Content']中包含消息撤回和id，就执行下面的语句
     if '撤回了一条消息' in msg['Content']:
-        old_msg_id = re.search("\<msgid\>(.*?)\<\/msgid\>", msg['Content']).group(1)  #在返回的content查找撤回的消息的id
+        old_msg_id = re.search(r"\<msgid\>(.*?)\<\/msgid\>", msg['Content']).group(1)  #在返回的content查找撤回的消息的id
         old_msg = msg_information.get(old_msg_id)  #得到消息
         #print (old_msg)
 
