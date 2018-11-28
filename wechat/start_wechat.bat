@@ -1,1 +1,1 @@
-python wechat_recall.py robot
+python wechat.py robot

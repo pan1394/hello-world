@@ -6,6 +6,8 @@ import time
 import re 
 import os
 from tulin_robot import get_response
+import pm25
+  
  
 msg_information = {}
 face_bug=None #针对表情包的内容
@@ -17,6 +19,12 @@ def my_reply(fromMsg, toUser):
     itchat.send(msg=robotReply, toUserName=toUser)
     print("机器人: {}".format(robotReply))
 
+def send_pm25(city, toUser):
+    if city == None or city == '':
+        city = 'suzhou'
+    pm25Data = pm25.getPM25(city)
+    itchat.send(msg=pm25Data, toUserName=toUser)
+     
  
 def is_sent_me(toUserName):
     friend = itchat.search_friends(userName=toUserName)
@@ -94,7 +102,14 @@ def handle_receive_msg(msg):
  
     if( is_sent_me(toUserName) and robot_enabled and friend):       #如果是发送给我的, 用机器人回复.
         my_reply(msg_content, fromName)
-
+    
+    if(toUserName == 'filehelper'):
+        msg_content = msg['Text']
+        mh = re.search(r'pm:(\w*)', msg_content)
+        if(mh) :
+            city = mh.group(1)
+            send_pm25(city, toUserName)
+     
     ##将信息存储在字典中，每一个msg_id对应一条信息
     msg_information.update(
         {
@@ -106,7 +121,18 @@ def handle_receive_msg(msg):
         }
     )
  
- 
+#@itchat.msg_register(TEXT)
+def pm25_listener(msg):
+    print(msg)
+    toUserName = msg['ToUserName']
+    if(toUserName == 'filehelper'):
+        msg_content = msg['Text']
+        mh = re.search(r'pm:(\w*)', msg_content)
+        if(mh) :
+            city = mh.group(1)
+            send_pm25(city, toUserName)
+
+
 ##这个是用于监听是否有消息撤回
 @itchat.msg_register(NOTE, isFriendChat=True, isGroupChat=True, isMpChat=True)
 def information(msg):
