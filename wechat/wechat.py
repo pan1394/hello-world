@@ -1,12 +1,16 @@
 # coding:utf-8
-import itchat
-from itchat.content import TEXT, PICTURE, FRIENDS, CARD, MAP, SHARING, RECORDING, ATTACHMENT, VIDEO, NOTE
+import os
+import re
 import sys
 import time
-import re 
-import os
-from tulin_robot import get_response
-import pm25
+
+import itchat
+from itchat.content import (ATTACHMENT, CARD, FRIENDS, MAP, NOTE, PICTURE, RECORDING, SHARING, TEXT, VIDEO)
+
+sys.path.append(r'../')
+import crawl.pm25 as pm25
+from robot.tulin import get_response
+
   
  
 msg_information = {}
@@ -168,9 +172,13 @@ def information(msg):
     # 删除字典旧消息
     msg_information.pop(old_msg_id)
  
-if __name__ == "__main__": 
+def main():
     #itchat.auto_login(hotReload=True, enableCmdQR=2, statusStorageDir='account.pkl')  #通过命令行打印登入二维码
+    global robot_enabled, owner
     robot_enabled = len(sys.argv) > 1 and sys.argv[1]
     itchat.auto_login(hotReload=True)
     owner = itchat.get_friends()[0]
     itchat.run()
+
+if __name__ == "__main__": 
+    main()
