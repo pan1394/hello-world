@@ -15,17 +15,15 @@ print('ok')
 
 
 def name_of_email(addr):
-    reg = re.compile(r'(<\w+ \w+> )?([a-zA-Z.]+)@[a-zA-Z.]+')
+    reg = re.compile(r'(<\w+ \w+> )?([a-zA-Z\.]+)@[a-zA-Z\.]+')
     name = ''
-    if re.match(reg, addr) :
-        lst = re.match(reg, addr).groups() 
-        if lst[0] != None :
-            x = lst[0].strip()
-            name = x[1: -1]
-        else : 
-            name = lst[1]
+    if re.match(reg, addr) : 
+        x,y = re.match(reg, addr).group(1,2) 
+        name =  (x and x[1:-2]) or y 
     return name
 
+#name_of_email('<Tom Paris> tom@voyager.org')
+#name_of_email('tom@voyager.org')
 assert name_of_email('<Tom Paris> tom@voyager.org') == 'Tom Paris'
 assert name_of_email('tom@voyager.org') == 'tom'
 print('ok')

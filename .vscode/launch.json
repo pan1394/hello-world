@@ -15,7 +15,8 @@
             "cwd": "",
             "console": "integratedTerminal",
             "env": {},
-            "args":["robot"],
+            "args":["-i", "G:\\downloads\\DellToadDataModeler_1528.rar",
+                    "-s", "1"],
             "envFile": "${workspaceRoot}/.env",
             "debugOptions": [
                 "WaitOnAbnormalExit",
