@@ -1,10 +1,5 @@
 #!/usr/bin/env python3 
-"""
-作者：微微寒
-链接：https://www.zhihu.com/question/41132103/answer/93438156
-来源：知乎
-著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
-"""
+
 class ProgressBar(object):
     def __init__(self, title, count=0.0, run_status=None, fin_status=None, total=100.0,    unit='', sep='/', chunk_size=1.0):
         super(ProgressBar, self).__init__()

@@ -2,7 +2,7 @@ from os.path import getsize
 import sys, getopt
 sys.path.append('../')
 from download.progressBar import ProgressBar
-
+from download.database import DatabaseX
 
 def copy(sourceFile, targetFile=None, bufferSize = 1024, realTimeFunc=None):
     if targetFile == None:
@@ -11,17 +11,52 @@ def copy(sourceFile, targetFile=None, bufferSize = 1024, realTimeFunc=None):
         with open(sourceFile, "rb") as s:
             with open(targetFile, "wb") as d: 
                 while True:
-                    chunk = None
+                    chunk = None 
                     chunk = s.read(bufferSize)
                     if not chunk : break
                     d.write(chunk)
                     if realTimeFunc:
                         realTimeFunc()
     except Exception as e:
-        print(e)
+        print('error during copy...')  
     else:
         print("[{}] has copied to [{}].".format(sourceFile,targetFile))
- 
+       
+def copyx(sourceFile, targetFile=None, bufferSize = 1024, realTimeFunc=None):
+    if targetFile == None:
+        targetFile = replaceFileName(sourceFile)
+    try:
+        finished = False
+        db = DatabaseX(targetFile)
+        total = getsize(sourceFile.strip())
+        size = db.get('size')
+        if not size: 
+            size = 0
+            db.put('size', size) 
+
+        with open(sourceFile, "rb") as s:
+            if size : s.seek(size)
+            with open(targetFile, "ab") as d: 
+                while True:
+                    chunk = None 
+                    chunk = s.read(bufferSize)
+                    size += len(chunk)
+                    if not chunk : break
+                    d.write(chunk)
+                    if realTimeFunc:
+                        db.update('size', size)
+                        realTimeFunc()
+                finished = True
+    except Exception as e:
+        print('error during copy...')  
+    finally:
+        if not finished:
+            db.close()
+            print("[{}] being copied to [{}], copyed {}, complete rate: {:.1f}%.".format(sourceFile,targetFile, size, float((size/total) * 100)))
+        else:
+            print("[{}] has copied to [{}].".format(sourceFile,targetFile))
+            db.destroy()
+  
 def retrieveFileName(fileName):
     try:
         import re
@@ -47,11 +82,16 @@ def addTimeStamp(a):
      return a + '_' + time.strftime(fmt, fs)
 
 def exec(source, destination, chunk): 
-    content_size = getsize(source.strip())/1024                 #文件内容大小, 单位KB
-    chunk_size= chunk                                   #进度条chunk,  单位KB
-    bufferSize = 1024 * chunk_size                      #copy方法的chunk, 单位Byte
+    '''
+    source -> source file abs path
+    destination -> destination file abs path, if not entered, a default name provided
+    chunk ->  a chunk to store buffer
+    '''
+    content_size = getsize(source.strip())/1024                     #文件内容大小, 单位KB
+    chunk_size= chunk                                               #进度条chunk,  单位KB
+    bufferSize = 1024 * chunk_size                                  #copy方法的chunk, 单位Byte
     progress = ProgressBar(source, total=content_size, unit="KB", chunk_size=chunk_size, run_status="正在拷贝", fin_status="拷贝完成")
-    copy(source, destination, bufferSize, progress.refresh)
+    copyx(source, destination, bufferSize, progress.refresh)
  
 
 def main(argv):
@@ -80,4 +120,8 @@ def main(argv):
 
 
 if __name__ == "__main__":
-   main(sys.argv[1:])
+   #main(sys.argv[1:])
+   s = r'F:\Downloads\VSCodeSetup-x64-1.29.0.exe'
+   d = r'F:\Downloads\test4.exe'
+   exec(s, d, 1)
+
