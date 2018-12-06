@@ -1,4 +1,4 @@
-from os.path import getsize
+from os.path import getsize, exists
 import sys, getopt, threading
 sys.path.append('../')
 from download.progressBar import ProgressBar
@@ -52,17 +52,18 @@ def copyx(sourceFile, targetFile=None, bufferSize = 1024, realTimeFunc=None, cop
             print("[{}] has copied to [{}].".format(sourceFile,targetFile))
         return finished
   
-def copy2(sourceFile, targetFile, bufferSize = 1024, realTimeFunc=None, copied=0, start=0, end=100):
+def copyX2(sourceFile, targetFile, storeKey, bufferSize = 1024, realTimeFunc=None, copied=0, start=0, end=100):
     if targetFile == None:
         targetFile = replaceFileName(sourceFile)
-
+    th = threading.currentThread()
+    #print('线程{}开启:'.format(th.getName()))
     total = end - start
     position = start + copied
     try:
         finished = False  
         with open(sourceFile, "rb") as s:
             if position : s.seek(position)
-            with open(targetFile, "ab") as d: 
+            with open(targetFile, "rb+") as d: 
                 if position : d.seek(position)
                 while True:
                     chunk = None 
@@ -75,16 +76,16 @@ def copy2(sourceFile, targetFile, bufferSize = 1024, realTimeFunc=None, copied=0
                     d.write(real)
                     if realTimeFunc:
                         for k, func in realTimeFunc.items():
-                            if k == 'f1': func('size', copied)
-                            if k == 'f2': func() 
+                            if k == 'f1': func(storeKey, copied)
+                            #if k == 'f2': func() 
                 finished = True
         return finished
     except KeyboardInterrupt:
         print('error during copy...')  
     finally:
-        if not finished: 
+        if not finished:  
             print("[{}] being copied to [{}], copyed {}, complete rate: {:.1f}%.".format(sourceFile,targetFile, copied, float((copied/total) * 100)))
-        else:
+        else: 
             print("[{}] has copied to [{}].".format(sourceFile,targetFile))
         return finished
 
@@ -112,42 +113,44 @@ def addTimeStamp(a):
      fs = time.localtime(time.time())
      return a + '_' + time.strftime(fmt, fs)
 
-def exec(source, destination, chunk): 
+def exec(source, destination, chunk, thread_num=0): 
     '''
     source -> source file abs path
     destination -> destination file abs path, if not entered, a default name provided
     chunk ->  a chunk to store buffer
-    '''
-    thead_enabled = True
-    source = source.strip()
+    ''' 
     bar_total = getsize(source) / 1024                     #文件内容大小, 单位KB
+    source = source.strip()
     bar_chunk = chunk
     copy_total = getsize(source)
     copy_chunk = 1024 * bar_chunk 
     progress = ProgressBar(source, total=bar_total, unit="KB", chunk_size=bar_chunk, run_status="正在拷贝", fin_status="拷贝完成")
     if not destination:
         copy(source, destination, copy_chunk, progress.refresh)
-    elif thead_enabled:
-        
-        destination = destination.strip()
-        thead_num = 3  
+    elif thread_num: 
+        tnum = thread_num
+        destination = destination.strip() 
         make_empyt_file(destination, copy_total)
-        parts = file_split(copy_total,thead_num)
+        parts = file_split(copy_total,tnum)
         db = DatabaseX() 
-
-        # contents=[b'abcdefg', b'123456','你'.encode('utf8'), b'hello jack']
-        keys = ["thread{}.start", "thread{}.end", "thread{}.copied"]
-        """ for i in range(thead_num):
-            name = keys[i].format(thead_num)
-            copied = db.get('size')
+  
+        key_fmt = "thread{}.copied"
+        threadName_fmt = "thread-{}"
+        for i in range(tnum):
+            name = key_fmt.format(i)
+            tName = threadName_fmt.format(i)
+            copied = db.get(name)
             if not copied: 
                 copied = 0
-                db.put('size', copied)  
+                db.put(name, copied)  
             else:
-                progress.completed_size = copied / 1024
+                progress.completed_size = copied / 1024        #已拷贝KB
             start, end = parts[i]
-            th = threading.Thread(target=copy2, args=(f,contents[i], start, end))
-            th.start()   """
+            bar_total = (end-start) / 1024  
+            progress = ProgressBar(tName, total=bar_total, unit="KB", chunk_size=bar_chunk, run_status="正在拷贝", fin_status="拷贝完成")
+            myargs = (source, destination, name, copy_chunk, {'f1':db.update, 'f2':progress.refresh2}, copied, start, end)
+            th = threading.Thread(target=copyX2, args=myargs)
+            th.start()   
         
     else: 
         destination = destination.strip()
@@ -157,7 +160,7 @@ def exec(source, destination, chunk):
             copied = 0
             db.put('size', copied)  
         else:
-            progress.completed_size = copied / 1024
+            progress.completed_size = copied / 1024             #已拷贝KB
 
         func = {'f1':db.update, 'f2':progress.refresh}
         finished = copyx(source, destination, copy_chunk, func, copied, copy_total)
@@ -171,6 +174,8 @@ def exec(source, destination, chunk):
 def make_empyt_file(file, size):
     '''创建一个大小为size的临时文件
     '''
+    if exists(file):
+        return 
     with open(file,"bw") as f:
         content = b'\x01' * size
         f.write(content)
@@ -217,7 +222,9 @@ def main(argv):
 
 if __name__ == "__main__":
    #main(sys.argv[1:])
-   s = r'G:\downloads\WeChatSetup.exe'
-   d = r'g:\Downloads\test12.exe'
-   exec(s, d, 100)
+   s = r'f:\downloads\GPU-Z.2.8.0.exe'
+   #s = r'f:\downloads\a.txt'
+   d = r'f:\Downloads\gpu3_x.exe'
+   exec(s, d, 1, 2)
+
 
