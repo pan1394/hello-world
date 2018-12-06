@@ -1,5 +1,5 @@
 from os.path import getsize
-import sys, getopt
+import sys, getopt, threading
 sys.path.append('../')
 from download.progressBar import ProgressBar
 from download.database import DatabaseX
@@ -17,46 +17,77 @@ def copy(sourceFile, targetFile=None, bufferSize = 1024, realTimeFunc=None):
                     d.write(chunk)
                     if realTimeFunc:
                         realTimeFunc()
-    except Exception as e:
+    except Exception:
         print('error during copy...')  
     else:
         print("[{}] has copied to [{}].".format(sourceFile,targetFile))
        
-def copyx(sourceFile, targetFile=None, bufferSize = 1024, realTimeFunc=None):
+def copyx(sourceFile, targetFile=None, bufferSize = 1024, realTimeFunc=None, copied=0, total=1):
     if targetFile == None:
         targetFile = replaceFileName(sourceFile)
     try:
-        finished = False
-        db = DatabaseX(targetFile)
-        total = getsize(sourceFile.strip())
-        size = db.get('size')
-        if not size: 
-            size = 0
-            db.put('size', size) 
-
+        finished = False  
         with open(sourceFile, "rb") as s:
-            if size : s.seek(size)
+            if copied : s.seek(copied)
             with open(targetFile, "ab") as d: 
+                if copied : d.seek(copied)
                 while True:
                     chunk = None 
                     chunk = s.read(bufferSize)
-                    size += len(chunk)
+                    copied += len(chunk)
                     if not chunk : break
                     d.write(chunk)
                     if realTimeFunc:
-                        db.update('size', size)
-                        realTimeFunc()
+                        for k, func in realTimeFunc.items():
+                            if k == 'f1': func('size', copied)
+                            if k == 'f2': func() 
                 finished = True
-    except Exception as e:
+        return finished
+    except KeyboardInterrupt:
         print('error during copy...')  
     finally:
-        if not finished:
-            db.close()
-            print("[{}] being copied to [{}], copyed {}, complete rate: {:.1f}%.".format(sourceFile,targetFile, size, float((size/total) * 100)))
+        if not finished: 
+            print("[{}] being copied to [{}], copyed {}, complete rate: {:.1f}%.".format(sourceFile,targetFile, copied, float((copied/total) * 100)))
         else:
             print("[{}] has copied to [{}].".format(sourceFile,targetFile))
-            db.destroy()
+        return finished
   
+def copy2(sourceFile, targetFile, bufferSize = 1024, realTimeFunc=None, copied=0, start=0, end=100):
+    if targetFile == None:
+        targetFile = replaceFileName(sourceFile)
+
+    total = end - start
+    position = start + copied
+    try:
+        finished = False  
+        with open(sourceFile, "rb") as s:
+            if position : s.seek(position)
+            with open(targetFile, "ab") as d: 
+                if position : d.seek(position)
+                while True:
+                    chunk = None 
+                    chunk = s.read(bufferSize)
+                    copied += len(chunk)
+                    if not chunk : break
+                    real = chunk
+                    if position + len(chunk) > end: 
+                        real = chunk[:end - position]
+                    d.write(real)
+                    if realTimeFunc:
+                        for k, func in realTimeFunc.items():
+                            if k == 'f1': func('size', copied)
+                            if k == 'f2': func() 
+                finished = True
+        return finished
+    except KeyboardInterrupt:
+        print('error during copy...')  
+    finally:
+        if not finished: 
+            print("[{}] being copied to [{}], copyed {}, complete rate: {:.1f}%.".format(sourceFile,targetFile, copied, float((copied/total) * 100)))
+        else:
+            print("[{}] has copied to [{}].".format(sourceFile,targetFile))
+        return finished
+
 def retrieveFileName(fileName):
     try:
         import re
@@ -87,12 +118,77 @@ def exec(source, destination, chunk):
     destination -> destination file abs path, if not entered, a default name provided
     chunk ->  a chunk to store buffer
     '''
-    content_size = getsize(source.strip())/1024                     #文件内容大小, 单位KB
-    chunk_size= chunk                                               #进度条chunk,  单位KB
-    bufferSize = 1024 * chunk_size                                  #copy方法的chunk, 单位Byte
-    progress = ProgressBar(source, total=content_size, unit="KB", chunk_size=chunk_size, run_status="正在拷贝", fin_status="拷贝完成")
-    copyx(source, destination, bufferSize, progress.refresh)
+    thead_enabled = True
+    source = source.strip()
+    bar_total = getsize(source) / 1024                     #文件内容大小, 单位KB
+    bar_chunk = chunk
+    copy_total = getsize(source)
+    copy_chunk = 1024 * bar_chunk 
+    progress = ProgressBar(source, total=bar_total, unit="KB", chunk_size=bar_chunk, run_status="正在拷贝", fin_status="拷贝完成")
+    if not destination:
+        copy(source, destination, copy_chunk, progress.refresh)
+    elif thead_enabled:
+        
+        destination = destination.strip()
+        thead_num = 3  
+        make_empyt_file(destination, copy_total)
+        parts = file_split(copy_total,thead_num)
+        db = DatabaseX() 
+
+        # contents=[b'abcdefg', b'123456','你'.encode('utf8'), b'hello jack']
+        keys = ["thread{}.start", "thread{}.end", "thread{}.copied"]
+        """ for i in range(thead_num):
+            name = keys[i].format(thead_num)
+            copied = db.get('size')
+            if not copied: 
+                copied = 0
+                db.put('size', copied)  
+            else:
+                progress.completed_size = copied / 1024
+            start, end = parts[i]
+            th = threading.Thread(target=copy2, args=(f,contents[i], start, end))
+            th.start()   """
+        
+    else: 
+        destination = destination.strip()
+        db = DatabaseX() 
+        copied = db.get('size')
+        if not copied: 
+            copied = 0
+            db.put('size', copied)  
+        else:
+            progress.completed_size = copied / 1024
+
+        func = {'f1':db.update, 'f2':progress.refresh}
+        finished = copyx(source, destination, copy_chunk, func, copied, copy_total)
+
+        if finished:
+            db.destroy()
+        else:
+            db.close()
+
+
+def make_empyt_file(file, size):
+    '''创建一个大小为size的临时文件
+    '''
+    with open(file,"bw") as f:
+        content = b'\x01' * size
+        f.write(content)
+
+def file_split(size, t_num):
+    '''根据线程数分割文件块'''
+    a = size // t_num
+    b = a + size % t_num
+    part = [a] * t_num
+    part[-1] = b
+    res = [(i*a, (i+1)*a) for i in range(t_num)] 
+    x , y = res[-1]
+    y = x + b
+    res[-1] = (x, y)
+    return res
+     
  
+    
 
 def main(argv):
     source = None
@@ -121,7 +217,7 @@ def main(argv):
 
 if __name__ == "__main__":
    #main(sys.argv[1:])
-   s = r'F:\Downloads\VSCodeSetup-x64-1.29.0.exe'
-   d = r'F:\Downloads\test4.exe'
-   exec(s, d, 1)
+   s = r'G:\downloads\WeChatSetup.exe'
+   d = r'g:\Downloads\test12.exe'
+   exec(s, d, 100)
 

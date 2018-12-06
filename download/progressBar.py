@@ -3,7 +3,7 @@
 class ProgressBar(object):
     def __init__(self, title, count=0.0, run_status=None, fin_status=None, total=100.0,    unit='', sep='/', chunk_size=1.0):
         super(ProgressBar, self).__init__()
-        self.info = "[%s] %s %.2f %s %s %.2f %s"
+        self.info = "[%s] %s %.2f %s %s %.2f %s, %.1f%%"
         self.title = title
         self.total = total
         self.count = count
@@ -12,12 +12,12 @@ class ProgressBar(object):
         self.fin_status = fin_status or " " * len(self.status)
         self.unit = unit
         self.seq = sep
+        self.completed_size = 0
  
     def __get_info(self):
         # 【名称】状态 进度 单位 分割线 总数 单位
-        p = self.chunk_size * self.count
-        if p > self.total: p = self.total
-        _info = self.info % (self.title, self.status, p, self.unit, self.seq, self.total, self.unit)
+        rate = (self.completed_size / self.total) * 100  
+        _info = self.info % (self.title, self.status, self.completed_size , self.unit, self.seq, self.total, self.unit, rate)
         return _info
 
     def refresh(self, count=1, status=None):
@@ -25,9 +25,11 @@ class ProgressBar(object):
         # if status is not None:
         self.status = status or self.status
         end_str = "\r"
-        p = self.chunk_size * self.count
-        if p >= self.total:   
+        #p = self.chunk_size * self.count
+        self.completed_size += self.chunk_size
+        if self.completed_size >= self.total:   
             end_str = '\n'
+            self.completed_size = self.total
             self.status = status or self.fin_status
         print(self.__get_info(), end=end_str)
  
