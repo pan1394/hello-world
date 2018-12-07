@@ -22,22 +22,19 @@ class Database():
         lines = self.db.readlines()
         for line in lines:
             item = line.split(":")
-            key = item[0]
-            value = item[1][:-1]
+            key = item[0].strip()
+            value = item[1][:-1].strip()
             self.keys.add(key)
             self.dictionary.setdefault(key, value)
-        
 
-    def put(self, key, value):
+    def put(self, key, value): 
+        self._update(key, value)
+        self._write()
+
+    def _update(self, key, value):
         if key not in self.keys:
             self.dictionary.setdefault(key, value)
         else:
-            self._update(key, value) 
-        self._write()
-
-    
-    def _update(self, key, value):
-        if key in self.keys:
             self.dictionary[key] = value
 
     def _write(self):
@@ -45,12 +42,7 @@ class Database():
         for key, value in self.dictionary.items():
             item = Database.fmt.format(key, value)    
             self.db.write(item)  
-
-    def update(self, key, value): 
-        self._update(key, value)
-        self._write()
  
-
     def get(self, key):
         self.dictionary.get(key)
 
@@ -69,7 +61,7 @@ def test(db, key):
     count = 0
     while True:
         count += 1
-        db.update(key, count)
+        db.put(key, count)
 
 
 
@@ -81,12 +73,15 @@ if __name__ == "__main__":
     db.put('key', 0)
     db.put('position', 0)
 
+    db.put('key', 'heelo')
+
+   
     th = threading.Thread(target=test, args=(db,'key'))
     th.start()
     
     th2 = threading.Thread(target=test, args=(db,'position'))
     th2.start()
-
+  
  
 
     #db.destroy()

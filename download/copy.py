@@ -1,5 +1,5 @@
 from os.path import getsize, exists
-import sys, getopt, threading
+import sys, getopt, threading, time
 sys.path.append('../')
 from download.progressBar import ProgressBar
 from download.database import DatabaseX
@@ -55,8 +55,7 @@ def copyx(sourceFile, targetFile=None, bufferSize = 1024, realTimeFunc=None, cop
 def copyX2(sourceFile, targetFile, storeKey, bufferSize = 1024, realTimeFunc=None, copied=0, start=0, end=100):
     if targetFile == None:
         targetFile = replaceFileName(sourceFile)
-    th = threading.currentThread()
-    #print('线程{}开启:'.format(th.getName()))
+    thName = threading.currentThread().getName()
     total = end - start
     position = start + copied
     try:
@@ -75,18 +74,18 @@ def copyX2(sourceFile, targetFile, storeKey, bufferSize = 1024, realTimeFunc=Non
                         real = chunk[:end - position]
                     d.write(real)
                     if realTimeFunc:
-                        for k, func in realTimeFunc.items():
-                            if k == 'f1': func(storeKey, copied)
+                        for k, func in realTimeFunc.items(): 
+                            #if k == 'f1': func(storeKey, copied)
                             if k == 'f2': func() 
                 finished = True
         return finished
     except KeyboardInterrupt:
         print('error during copy...')  
     finally:
-        if not finished:  
+        if not finished:   
             print("[{}] being copied to [{}], copyed {}, complete rate: {:.1f}%.".format(sourceFile,targetFile, copied, float((copied/total) * 100)))
         else: 
-            print("[{}] has copied to [{}].".format(sourceFile,targetFile))
+            print("[{}-{}] has copied to [{}].".format(thName,sourceFile,targetFile))
         return finished
 
 def retrieveFileName(fileName):
@@ -179,7 +178,7 @@ def listener(bar, database):
     while True:
         end = bar.print()
         if end: break
-    #database.destroy()
+    database.destroy()
 
 
 def make_empyt_file(file, size):
@@ -207,13 +206,20 @@ def file_split(size, t_num):
     
 
 def main(argv):
+    ''' 参数说明:
+    -i: 源文件
+    -o: 目标文件
+    -s: 复制最小内存单位, 默认 1KB
+    -t: 复制线程数, 默认为 1
+    '''
     source = None
     dest = None
     chunk = 1
+    thread = 0
     try:
-        opts, args = getopt.getopt(argv,"hi:o:s:",["ifile=","ofile=","chunkSize="])
+        opts, args = getopt.getopt(argv,"hi:o:s:t:",["ifile=","ofile=","chunkSize=","threadNum="])
     except getopt.GetoptError:
-        print ('copy.py -i <inputfile> -o <outputfile> -s <chunksize>')
+        print ('copy.py -i <inputfile> -o <outputfile> -s <chunksize> -t <threadNum>')
         sys.exit(2)
     for opt, arg in opts:
         if opt == '-h':
@@ -225,17 +231,22 @@ def main(argv):
             dest = arg 
         elif opt in ("-s", "--chunkSize"):
             chunk = int(arg)
+        elif opt in ("-t", "--threadNum"):
+            thread = int(arg)
     if source == None:
         raise Exception("source is required.")
 
-    exec(source, dest, chunk)
+    exec(source, dest, chunk, thread)
 
 
 if __name__ == "__main__":
-   #main(sys.argv[1:])
-   s = r'G:\downloads\VSCodeSetup-x64-1.29.0.exe'
+   #t1 = time.time()
+   main(sys.argv[1:])
+   #s = r'f:\downloads\VSCodeSetup-x64-1.29.0.exe'
    #s = r'f:\downloads\a.txt'
-   d = r'G:\downloads\VSCodeSetup_4.exe'
-   exec(s, d, 10, 3)
+   #d = r'f:\downloads\VSCodeSetup_9.exe'
+   #exec(s, d, 1, 4)
+   #t2 = time.time()
+   #print("time consumed %.3f seconds" % (t2 - t1))
 
 
