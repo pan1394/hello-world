@@ -77,7 +77,7 @@ def copyX2(sourceFile, targetFile, storeKey, bufferSize = 1024, realTimeFunc=Non
                     if realTimeFunc:
                         for k, func in realTimeFunc.items():
                             if k == 'f1': func(storeKey, copied)
-                            #if k == 'f2': func() 
+                            if k == 'f2': func() 
                 finished = True
         return finished
     except KeyboardInterrupt:
@@ -134,8 +134,10 @@ def exec(source, destination, chunk, thread_num=0):
         parts = file_split(copy_total,tnum)
         db = DatabaseX() 
   
+        func = {'f1':db.update, 'f2':progress.calulate}
         key_fmt = "thread{}.copied"
         threadName_fmt = "thread-{}"
+        bar_total_copied = 0
         for i in range(tnum):
             name = key_fmt.format(i)
             tName = threadName_fmt.format(i)
@@ -144,13 +146,16 @@ def exec(source, destination, chunk, thread_num=0):
                 copied = 0
                 db.put(name, copied)  
             else:
-                progress.completed_size = copied / 1024        #已拷贝KB
-            start, end = parts[i]
-            bar_total = (end-start) / 1024  
-            progress = ProgressBar(tName, total=bar_total, unit="KB", chunk_size=bar_chunk, run_status="正在拷贝", fin_status="拷贝完成")
-            myargs = (source, destination, name, copy_chunk, {'f1':db.update, 'f2':progress.refresh2}, copied, start, end)
+                bar_total_copied += copied
+                progress.completed_size = bar_total_copied / 1024        #已拷贝KB
+            start, end = parts[i]  
+            myargs = (source, destination, name, copy_chunk, func, copied, start, end)
             th = threading.Thread(target=copyX2, args=myargs)
-            th.start()   
+            th.start() 
+        
+        monitor = threading.Thread(target=listener, args=(progress,db))
+        monitor.start() 
+          
         
     else: 
         destination = destination.strip()
@@ -169,6 +174,12 @@ def exec(source, destination, chunk, thread_num=0):
             db.destroy()
         else:
             db.close()
+
+def listener(bar, database):
+    while True:
+        end = bar.print()
+        if end: break
+    #database.destroy()
 
 
 def make_empyt_file(file, size):
@@ -222,9 +233,9 @@ def main(argv):
 
 if __name__ == "__main__":
    #main(sys.argv[1:])
-   s = r'f:\downloads\GPU-Z.2.8.0.exe'
+   s = r'G:\downloads\VSCodeSetup-x64-1.29.0.exe'
    #s = r'f:\downloads\a.txt'
-   d = r'f:\Downloads\gpu3_x.exe'
-   exec(s, d, 1, 2)
+   d = r'G:\downloads\VSCodeSetup_4.exe'
+   exec(s, d, 10, 3)
 
 

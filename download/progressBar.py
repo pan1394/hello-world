@@ -33,13 +33,19 @@ class ProgressBar(object):
             self.status = status or self.fin_status
         print(self.__get_info(), end=end_str)
  
-    def refresh2(self, count=1):
+
+    def calulate(self, count=1):
         self.count += count
         self.completed_size += self.chunk_size
-        if self.completed_size >= self.total:   
-            #end_str = '\n'
+        if self.completed_size >= self.total:    
             self.completed_size = self.total
             self.status = self.fin_status 
 
+    def print(self):
+        is_end = False
         end_str = "\r"
+        if self.completed_size >= self.total:
+            end_str = '\n'
+            is_end = True
         print(self.__get_info(), end=end_str)
+        return is_end
